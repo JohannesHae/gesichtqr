@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vom Gesicht zum Code</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+:root{
+  --bg:#E3E6EC; --surface:#F4F5F8; --text:#161A2E; --muted:#596079;
+  --line:#C6CBD7; --accent:#2D4BF0; --accent-text:#FFFFFF; --stage:#F6F5F0;
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11131B; --surface:#1A1D28; --text:#E7E9F2; --muted:#9BA1B7;
+    --line:#2D3142; --accent:#8495FF; --accent-text:#0D0F1C; --stage:#F6F5F0;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11131B; --surface:#1A1D28; --text:#E7E9F2; --muted:#9BA1B7;
+  --line:#2D3142; --accent:#8495FF; --accent-text:#0D0F1C; --stage:#F6F5F0;
+  color-scheme: dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:"Bricolage Grotesque", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size:16px; line-height:1.5;
+}
+.wrap{max-width:1180px; margin:0 auto; padding:clamp(16px,4vw,40px)}
+header{margin-bottom:clamp(16px,3vw,28px); max-width:62ch}
+h1{
+  font-size:clamp(2.2rem,6vw,4.2rem); line-height:.95; font-weight:800;
+  letter-spacing:-.03em; margin:0 0 .35em;
+  font-variation-settings:"opsz" 96;
+}
+header p{margin:0; color:var(--muted); font-size:1.05rem}
+
+.layout{display:grid; gap:clamp(16px,3vw,32px); grid-template-columns:minmax(0,1fr)}
+@media (min-width:900px){ .layout{grid-template-columns:minmax(0,1fr) 330px; align-items:start} }
+
+.stage-wrap{position:relative}
+.stage{
+  position:relative; background:var(--stage); border-radius:6px;
+  aspect-ratio:1/1; width:100%; max-width:760px; overflow:hidden;
+  outline:1px solid var(--line);
+}
+.stage canvas{display:block; width:100%; height:100%; cursor:grab; touch-action:none}
+.stage canvas.grabbing{cursor:grabbing}
+.stage.drag{outline:3px dashed var(--accent); outline-offset:-3px}
+
+.scrub{max-width:760px; margin-top:22px}
+input[type=range]{width:100%; accent-color:var(--accent); margin:0}
+.scrub input[type=range]{height:34px; cursor:grab}
+.phases{position:relative; height:2.4em; margin-top:2px}
+.phases button{
+  position:absolute; top:0; transform:translateX(-50%);
+  background:none; border:0; padding:4px 6px; font:inherit; font-size:.92rem;
+  color:var(--muted); cursor:pointer; border-radius:4px; white-space:nowrap;
+}
+.phases button:first-child{transform:none; left:0 !important}
+.phases button:last-child{transform:translateX(-100%)}
+.phases button.on{color:var(--text); font-weight:600}
+.row-play{display:flex; gap:12px; align-items:center; margin-top:6px}
+
+.btn{
+  font:inherit; font-weight:600; border-radius:999px; padding:.6em 1.2em; cursor:pointer;
+  border:1.5px solid var(--text); background:transparent; color:var(--text);
+}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:var(--accent-text)}
+.btn:focus-visible, .phases button:focus-visible, input:focus-visible, .seg label:focus-within{
+  outline:3px solid var(--accent); outline-offset:2px
+}
+
+.panel{background:var(--surface); border-radius:6px; padding:22px; display:grid; gap:20px}
+.panel h2{font-size:1.15rem; margin:0; font-weight:700}
+.field{display:grid; gap:6px}
+.field > span{font-weight:600; font-size:.95rem}
+.field small{color:var(--muted); font-size:.85rem; line-height:1.4}
+.field input[type=text]{
+  font:inherit; padding:.55em .7em; border-radius:6px; border:1px solid var(--line);
+  background:var(--bg); color:var(--text); width:100%;
+}
+.val{float:right; color:var(--muted); font-weight:400; font-variant-numeric:tabular-nums}
+.upload{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+.upload input{position:absolute; width:1px; height:1px; opacity:0; overflow:hidden; clip:rect(0 0 0 0)}
+.upload .btn{position:relative}
+.btn:disabled{opacity:.5; cursor:progress}
+.up-status{margin:0; font-size:.9rem; min-height:1.4em}
+.up-status.err{color:#C0392B}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .up-status.err{color:#FF8A7A} }
+.seg{display:flex; border:1px solid var(--line); border-radius:999px; padding:3px; gap:3px}
+.seg label{flex:1; text-align:center; border-radius:999px; padding:.35em .6em; cursor:pointer; font-size:.95rem}
+.seg input{position:absolute; opacity:0; pointer-events:none}
+.seg label:has(input:checked){background:var(--text); color:var(--bg)}
+.check{display:flex; gap:10px; align-items:flex-start; font-size:.95rem; cursor:pointer}
+.check input{margin-top:.3em; accent-color:var(--accent); width:18px; height:18px}
+.hint{color:var(--muted); font-size:.88rem; margin:0}
+/* Handy */
+button, .btn, label, input{touch-action:manipulation}
+input[type=range]{height:32px}
+.small-link{font:inherit; font-size:.9rem; background:none; border:0; padding:4px 0; color:var(--accent); cursor:pointer; text-decoration:underline; text-underline-offset:3px; justify-self:start}
+@media (max-width:899px){
+  .wrap{padding:12px 14px 28px}
+  header{margin-bottom:10px}
+  h1{font-size:1.9rem; margin-bottom:.2em}
+  header p{font-size:.92rem; line-height:1.4}
+  .preview{
+    position:sticky; top:env(safe-area-inset-top,0px); z-index:5;
+    background:var(--bg); padding:8px 0 4px; margin:0 -14px; padding-left:14px; padding-right:14px;
+    border-bottom:1px solid var(--line);
+  }
+  body::before{content:""; position:fixed; inset:0 0 auto; height:env(safe-area-inset-top,0px); z-index:10; background:var(--bg)}
+  .stage{width:min(100%, 52vh, 52svh); margin:0 auto}
+  .scrub{margin-top:10px}
+  .phases{font-size:.85rem}
+  .phases button{font-size:.82rem; padding:4px 2px}
+  .row-play{margin-top:0}
+  .row-play .btn{padding:.5em 1.1em}
+  .panel{padding:18px 16px}
+  .upload .btn{flex:1 1 auto; text-align:center}
+}
+/* Kamera */
+.cam{position:absolute; inset:0; background:#000; z-index:2}
+.cam[hidden]{display:none}
+.cam video{width:100%; height:100%; object-fit:cover; display:block}
+.cam video.mirror{transform:scaleX(-1)}
+.cam .guide{position:absolute; inset:0; width:100%; height:100%; pointer-events:none}
+.cam .tip{position:absolute; top:12px; left:0; right:0; text-align:center; color:#fff; font-size:.95rem; margin:0; padding:0 12px; text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.cam .bar{position:absolute; left:0; right:0; bottom:0; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; padding:16px; background:linear-gradient(transparent, rgba(0,0,0,.6))}
+.cam .ghost{font:inherit; font-weight:600; color:#fff; background:rgba(0,0,0,.35); border:1.5px solid rgba(255,255,255,.7); border-radius:999px; padding:.45em 1em; cursor:pointer; justify-self:start}
+.cam .ghost.right{justify-self:end}
+.cam .ghost[hidden]{display:none}
+.shutter{width:68px; height:68px; border-radius:50%; border:4px solid #fff; background:rgba(255,255,255,.25); padding:0; cursor:pointer; position:relative}
+.shutter::after{content:""; position:absolute; inset:6px; border-radius:50%; background:#fff}
+.shutter:active::after{inset:9px}
+.cam button:focus-visible{outline:3px solid #8495FF; outline-offset:3px}
+.flash{position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:3}
+.flash.go{animation:flash .45s ease-out}
+@keyframes flash{from{opacity:.9} to{opacity:0}}
+@media (prefers-reduced-motion: reduce){ .flash.go{animation:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Vom Gesicht zum Code</h1>
+    <p>Lade ein frontales Porträt hoch und zieh den Regler. Das Gesicht wird wie ein 360°-Foto flach abgewickelt, in Kacheln zerlegt und schiebt sich zu einem QR-Code auseinander. Die dunklen Module behalten dein Gesicht.</p>
+  </header>
+
+  <div class="layout">
+    <section class="preview" aria-label="Vorschau">
+      <div class="stage" id="stage">
+        <canvas id="cv" role="img" aria-label="Porträt, das sich in einen QR-Code verwandelt"></canvas>
+        <div class="cam" id="camView" hidden>
+          <video id="camVideo" playsinline muted></video>
+          <svg class="guide" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <path fill="rgba(0,0,0,.4)" fill-rule="evenodd" d="M0 0H100V100H0Z M50 14 a27 35 0 1 0 0.01 0Z"/>
+            <ellipse cx="50" cy="49" rx="27" ry="35" fill="none" stroke="#fff" stroke-width=".6" stroke-dasharray="2 1.5"/>
+          </svg>
+          <p class="tip">Gesicht ins Oval, gerade in die Kamera schauen</p>
+          <div class="bar">
+            <button type="button" class="ghost" id="camCancel">Abbrechen</button>
+            <button type="button" class="shutter" id="camShoot" aria-label="Foto aufnehmen"></button>
+            <button type="button" class="ghost right" id="camSwitch" hidden>Kamera wechseln</button>
+          </div>
+        </div>
+        <div class="flash" id="flash"></div>
+      </div>
+      <div class="scrub">
+        <input id="prog" type="range" min="0" max="1000" value="0" aria-label="Verwandlung">
+        <div class="phases" id="phases">
+          <button type="button" data-p="0" style="left:0%">Foto</button>
+          <button type="button" data-p="300" style="left:30%">Abgewickelt</button>
+          <button type="button" data-p="600" style="left:60%">In Kacheln</button>
+          <button type="button" data-p="1000" style="left:100%">QR-Code</button>
+        </div>
+        <div class="row-play">
+          <button class="btn primary" id="play" type="button">Abspielen</button>
+          <span class="hint" id="status" aria-live="polite"></span>
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel" aria-label="Einstellungen">
+      <div class="field">
+        <span>Porträt</span>
+        <div class="upload">
+          <label class="btn" for="file">Foto wählen<input id="file" type="file" accept="image/*"></label>
+          <button class="btn" type="button" id="camBtn">Mit Kamera aufnehmen</button>
+          <input id="camFile" type="file" accept="image/*" capture="user" hidden>
+          <span class="hint">oder aufs Bild ziehen bzw. einfügen</span>
+        </div>
+        <p class="up-status" id="upStatus" aria-live="polite"></p>
+        <small>Das Foto bleibt in deinem Browser und wird nirgends hochgeladen.</small>
+      </div>
+
+      <label class="field">
+        <span>Inhalt des Codes</span>
+        <input id="txt" type="text" value="https://claude.ai" spellcheck="false">
+        <small>Kürzerer Text ergibt weniger, größere Kacheln.</small>
+      </label>
+
+      <label class="field">
+        <span>Ausschnitt <span class="val" id="zoomV">1,0×</span></span>
+        <input id="zoom" type="range" min="100" max="250" value="100">
+        <small>Ziehe das Bild in der Vorschau mit einem Finger, um es zu verschieben, und zoome mit zwei Fingern.</small>
+        <button type="button" class="small-link" id="resetCrop">Ausschnitt zurücksetzen</button>
+      </label>
+      <label class="field">
+        <span>Höhe <span class="val" id="offV">0</span></span>
+        <input id="off" type="range" min="-50" max="50" value="0">
+      </label>
+
+      <label class="field">
+        <span>Stärke der Abwicklung <span class="val" id="curvV">90 %</span></span>
+        <input id="curv" type="range" min="40" max="98" value="90">
+        <small>Wie stark das Gesicht als Kugel behandelt wird. Hohe Werte ziehen Wangen und Ohren weit nach außen.</small>
+      </label>
+
+      <div class="field">
+        <span>Bildstil</span>
+        <div class="seg" role="radiogroup">
+          <label><input type="radio" name="style" value="color" checked>Farbe</label>
+          <label><input type="radio" name="style" value="duo">Duoton</label>
+        </div>
+      </div>
+
+      <label class="field">
+        <span>Dunkle Kacheln abdunkeln <span class="val" id="darkV">45 %</span></span>
+        <input id="dark" type="range" min="0" max="90" value="45">
+        <small>Mehr Abdunkelung macht den Code zuverlässiger lesbar.</small>
+      </label>
+
+      <label class="field">
+        <span>Fugen zwischen Kacheln <span class="val" id="gapV">10 %</span></span>
+        <input id="gap" type="range" min="0" max="35" value="10">
+      </label>
+
+      <label class="check">
+        <input id="solid" type="checkbox" checked>
+        <span>Positionsmarken in den Ecken vollflächig füllen</span>
+      </label>
+
+      <div class="field">
+        <span>Herunterladen</span>
+        <div class="upload">
+          <button class="btn" type="button" id="dlPng">QR-Code als Bild</button>
+          <button class="btn" type="button" id="dlVid">Animation als Video</button>
+        </div>
+        <p class="up-status" id="dlStatus" aria-live="polite"></p>
+        <small>Das Bild ist ein PNG mit 2048 × 2048 Pixeln. Das Video zeigt die ganze Verwandlung in etwa 6 Sekunden, 1080 × 1080 Pixel.</small>
+      </div>
+
+      <p class="hint">Teste den fertigen Code mit der Handykamera. Wenn er nicht erkannt wird, erhöhe die Abdunkelung oder verkleinere die Fugen.</p>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+  const SIZE = 760;           // logische Canvas-Größe
+  const S = 720;              // Quellbild-Auflösung
+  const QUIET = 4;            // Ruhezone in Modulen
+  const K0 = 0.84;            // Größe des kompakten Bildes relativ zum fertigen Code
+  const INK = [20, 24, 43], PAPER = [246, 245, 240];
+  const INK_CSS = `rgb(${INK})`, PAPER_CSS = `rgb(${PAPER})`;
+
+  const cv = document.getElementById('cv');
+  const screenCtx = cv.getContext('2d');
+  let ctx = screenCtx;
+  const stageEl = document.getElementById('stage');
+  const $ = id => document.getElementById(id);
+
+  const photoC = document.createElement('canvas');
+  const flatC = document.createElement('canvas');
+  photoC.width = photoC.height = flatC.width = flatC.height = S;
+
+  // Zwischenbild für die Abwicklung: klein für die Live-Vorschau, größer für den Export
+  function makeFrame(size) {
+    const c = document.createElement('canvas'); c.width = c.height = size;
+    const x = c.getContext('2d');
+    return { size, c, x, img: x.createImageData(size, size) };
+  }
+  const liveFrame = makeFrame(360);
+  let hiFrame = null;
+  let frame = liveFrame;
+  const unwrapC = document.createElement('canvas'); unwrapC.width = unwrapC.height = S;
+  let photoPx = null, flatPx = null;
+
+  const state = { p: 0, zoom: 1, offX: 0, offY: 0, curv: .9, style: 'color', dark: .45, gap: .10, solid: true };
+  let src = null, N = 25, mods = [], fallback = false;
+
+  const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+  // ---------- Platzhalter-Porträt ----------
+  function placeholder() {
+    const c = document.createElement('canvas'); c.width = c.height = 720;
+    const g = c.getContext('2d');
+    const bg = g.createLinearGradient(0, 0, 0, 720);
+    bg.addColorStop(0, '#9DB2C9'); bg.addColorStop(1, '#DCE2E9');
+    g.fillStyle = bg; g.fillRect(0, 0, 720, 720);
+    const ell = (x, y, rx, ry, col) => { g.fillStyle = col; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); };
+    ell(360, 790, 320, 230, '#2B3550');              // Schultern
+    g.fillStyle = '#C9906F'; g.fillRect(305, 460, 110, 150); // Hals
+    ell(360, 268, 172, 205, '#2A1D17');              // Haare hinten
+    ell(214, 352, 26, 42, '#D6A182'); ell(506, 352, 26, 42, '#D6A182'); // Ohren
+    const skin = g.createRadialGradient(340, 320, 30, 360, 350, 210);
+    skin.addColorStop(0, '#EEC3A4'); skin.addColorStop(1, '#C88D6C');
+    ell(360, 350, 148, 185, skin);                   // Gesicht
+    ell(360, 195, 152, 72, '#2A1D17');               // Pony
+    ell(300, 342, 18, 10, '#20160F'); ell(420, 342, 18, 10, '#20160F'); // Augen
+    g.strokeStyle = '#2A1D17'; g.lineWidth = 9; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(270, 305); g.quadraticCurveTo(300, 292, 330, 302); g.stroke();
+    g.beginPath(); g.moveTo(390, 302); g.quadraticCurveTo(420, 292, 450, 305); g.stroke();
+    g.strokeStyle = 'rgba(120,70,50,.45)'; g.lineWidth = 6;
+    g.beginPath(); g.moveTo(362, 350); g.lineTo(350, 410); g.lineTo(372, 414); g.stroke();
+    g.strokeStyle = '#8A4A44'; g.lineWidth = 8;
+    g.beginPath(); g.moveTo(318, 462); g.quadraticCurveTo(360, 486, 402, 462); g.stroke();
+    return c;
+  }
+
+  // ---------- Ausschnitt ----------
+  function clampOffsets(iw, ih, side) {
+    const mx = (iw - side) / 2 / iw, my = (ih - side) / 2 / ih;
+    state.offX = clamp(state.offX, -mx, mx);
+    state.offY = clamp(state.offY, -my, my);
+    syncOffSlider();
+  }
+  function syncOffSlider() {
+    const el = $('off'), v = Math.round(state.offY * 100);
+    if (+el.value !== v) el.value = v;
+    $('offV').textContent = (v > 0 ? '+' : '') + v;
+  }
+  function setSource(img) {
+    src = img; state.offX = 0; state.offY = 0;
+    buildSources(); setP(0);
+  }
+
+  // ---------- Quellen aufbauen ----------
+  function buildSources() {
+    if (!src) return;
+    const iw = src.naturalWidth || src.width, ih = src.naturalHeight || src.height;
+    const side = Math.min(iw, ih) / state.zoom;
+    clampOffsets(iw, ih, side);
+    const sx = (iw - side) / 2 + state.offX * iw;
+    const sy = (ih - side) / 2 + state.offY * ih;
+    const p = photoC.getContext('2d', { willReadFrequently: true });
+    p.fillStyle = PAPER_CSS; p.fillRect(0, 0, S, S);
+    p.drawImage(src, sx, sy, side, side, 0, 0, S, S);
+
+    const d = p.getImageData(0, 0, S, S).data;
+    const fctx = flatC.getContext('2d');
+    const out = fctx.createImageData(S, S); const o = out.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i], g = d[i + 1], b = d[i + 2];
+      const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      if (state.style === 'duo') {
+        const v = clamp((lum - .5) * 1.7 + .5);
+        o[i] = lerp(INK[0], PAPER[0], v); o[i + 1] = lerp(INK[1], PAPER[1], v); o[i + 2] = lerp(INK[2], PAPER[2], v);
+      } else {
+        const L = lum * 255;
+        for (let k = 0; k < 3; k++) {
+          const ch = lerp(d[i + k], L, .2) / 255;     // leicht entsättigt
+          o[i + k] = clamp((ch - .5) * 1.35 + .5) * 255; // mehr Kontrast, „platt“
+        }
+      }
+      o[i + 3] = 255;
+    }
+    fctx.putImageData(out, 0, 0);
+    photoPx = d; flatPx = o;
+    buildUnwrap();
+  }
+
+  function buildUnwrap() {
+    if (!photoPx) return;
+    const uctx = unwrapC.getContext('2d');
+    const img = uctx.createImageData(S, S);
+    warp(img.data, S, 1, 1, 0);
+    uctx.putImageData(img, 0, 0);
+  }
+
+  // ---------- Abwicklung (Kugel -> equirektangulare Karte) ----------
+  // Das Foto gilt als orthografische Frontansicht einer Kugel. Für jeden Punkt der
+  // abgewickelten Karte (Länge, Breite) wird der Punkt im Foto gesucht und mit u überblendet.
+  function warp(o, size, u, mix, grid) {
+    const A = state.curv * Math.PI / 2, sA = Math.sin(A);
+    const P = PAPER;
+    for (let j = 0; j < size; j++) {
+      const Y = (j + .5) / size * 2 - 1;
+      const cY = Math.cos(Y * A), sY = Math.sin(Y * A) / sA;
+      for (let i = 0; i < size; i++) {
+        const X = (i + .5) / size * 2 - 1;
+        const px = X + (cY * Math.sin(X * A) / sA - X) * u;
+        const py = Y + (sY - Y) * u;
+        const k = (j * size + i) * 4;
+        if (px < -1 || px > 1 || py < -1 || py > 1) { o[k] = P[0]; o[k + 1] = P[1]; o[k + 2] = P[2]; o[k + 3] = 255; continue; }
+        // bilinear abtasten
+        const fx = (px + 1) / 2 * S - .5, fy = (py + 1) / 2 * S - .5;
+        const x0 = Math.max(0, Math.min(S - 2, fx | 0)), y0 = Math.max(0, Math.min(S - 2, fy | 0));
+        const tx = clamp(fx - x0), ty = clamp(fy - y0);
+        const a = (y0 * S + x0) * 4, b = a + 4, c = a + S * 4, d = c + 4;
+        const w00 = (1 - tx) * (1 - ty), w10 = tx * (1 - ty), w01 = (1 - tx) * ty, w11 = tx * ty;
+        let g = 0;
+        if (grid > 0) { // Längen- und Breitengrade auf der Kugel
+          const phi = Math.asin(clamp(py * sA, -1, 1));
+          const sl = px * sA / Math.cos(phi);
+          if (sl > -1 && sl < 1) {
+            const lon = Math.asin(sl) / A * 6, lat = phi / A * 6;
+            const dl = Math.abs(lon - Math.round(lon)), dt = Math.abs(lat - Math.round(lat));
+            const line = Math.max(0, 1 - Math.min(dl, dt) / .06);
+            g = line * grid;
+          }
+        }
+        for (let ch = 0; ch < 3; ch++) {
+          const vp = photoPx[a + ch] * w00 + photoPx[b + ch] * w10 + photoPx[c + ch] * w01 + photoPx[d + ch] * w11;
+          const vf = flatPx[a + ch] * w00 + flatPx[b + ch] * w10 + flatPx[c + ch] * w01 + flatPx[d + ch] * w11;
+          const v = vp + (vf - vp) * mix;
+          o[k + ch] = v + (255 - v) * g * .75;
+        }
+        o[k + 3] = 255;
+      }
+    }
+  }
+
+  // ---------- QR-Matrix ----------
+  function buildQR() {
+    const text = $('txt').value.trim() || ' ';
+    fallback = false;
+    for (const ec of ['H', 'Q', 'M', 'L']) {
+      try {
+        const q = qrcode(0, ec); q.addData(text); q.make();
+        N = q.getModuleCount(); mods = new Array(N * N);
+        for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) mods[r * N + c] = q.isDark(r, c);
+        $('status').textContent = '';
+        return;
+      } catch (e) { /* nächste Stufe probieren */ }
+    }
+    // Ersatzmuster, falls die Bibliothek fehlt oder der Text zu lang ist
+    fallback = true; N = 29; mods = new Array(N * N);
+    let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    for (let i = 0; i < N * N; i++) mods[i] = rnd() > .5;
+    const finder = (r0, c0) => { for (let r = -1; r < 8; r++) for (let c = -1; c < 8; c++) {
+      const rr = r0 + r, cc = c0 + c; if (rr < 0 || cc < 0 || rr >= N || cc >= N) continue;
+      const ring = Math.max(Math.abs(r - 3), Math.abs(c - 3));
+      mods[rr * N + cc] = ring !== 2 && ring !== 4; } };
+    finder(0, 0); finder(0, N - 7); finder(N - 7, 0);
+    $('status').textContent = typeof qrcode === 'undefined'
+      ? 'Der QR-Generator konnte nicht geladen werden, gezeigt wird ein Beispielmuster. Prüfe die Internetverbindung.'
+      : 'Der Text ist zu lang für einen QR-Code, gezeigt wird ein Beispielmuster.';
+  }
+
+  const isFinder = (r, c) => (r < 7 && c < 7) || (r < 7 && c >= N - 7) || (r >= N - 7 && c < 7);
+
+  // ---------- Zeichnen ----------
+  function draw() {
+    if (!photoPx) return;
+    const p = state.p;
+    ctx.fillStyle = PAPER_CSS; ctx.fillRect(0, 0, SIZE, SIZE);
+    const cell = SIZE / (N + 2 * QUIET);
+    const full = N * cell, comp = full * K0;
+    const cx = SIZE / 2, cy = SIZE / 2;
+
+    if (p <= 0.3) {
+      // Phase 1: Gesicht wird wie ein 360°-Foto abgewickelt
+      const a = p / 0.3, u = ease(a);
+      warp(frame.img.data, frame.size, u, u, 0);
+      frame.x.putImageData(frame.img, 0, 0);
+      const x = cx - comp / 2, y = cy - comp / 2;
+      ctx.drawImage(frame.c, x, y, comp, comp);
+      const bulge = 1 - u;
+      if (bulge > 0.01) { // Wölbung, die beim Abwickeln verschwindet
+        const gr = ctx.createRadialGradient(cx - comp * .1, cy - comp * .12, comp * .05, cx, cy, comp * .75);
+        gr.addColorStop(0, `rgba(255,255,255,${.22 * bulge})`);
+        gr.addColorStop(.45, 'rgba(255,255,255,0)');
+        gr.addColorStop(1, `rgba(0,0,0,${.45 * bulge})`);
+        ctx.fillStyle = gr; ctx.fillRect(x, y, comp, comp);
+      }
+      return;
+    }
+
+    // Phase 2 und 3: Kacheln
+    const b = clamp((p - .3) / .3), c = clamp((p - .6) / .4);
+    const gapB = .14 * ease(b);
+    const sw = S / N, half = N / 2, maxd = Math.hypot(half, half);
+    ctx.imageSmoothingEnabled = true;
+
+    for (let r = 0; r < N; r++) {
+      for (let col = 0; col < N; col++) {
+        const dark = mods[r * N + col];
+        const ox = col + .5 - half, oy = r + .5 - half;
+        const delay = Math.hypot(ox, oy) / maxd * .45;
+        const t = ease(clamp((c - delay) / .55));
+        const x = cx + lerp(ox * cell * K0, ox * cell, t);
+        const y = cy + lerp(oy * cell * K0, oy * cell, t);
+        let size = lerp(cell * K0, cell, t) * (1 - lerp(gapB, state.gap, t));
+        let alpha = 1;
+        if (!dark) { size *= 1 - .55 * t; alpha = 1 - t; }
+        if (alpha <= .01 || size <= .2) continue;
+        // leicht überlappen, solange keine Fugen da sind, damit keine Haarlinien entstehen
+        const pad = (gapB === 0 && t === 0) ? .5 : 0;
+        const dx = x - size / 2 - pad, dy = y - size / 2 - pad, ds = size + pad * 2;
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(unwrapC, col * sw, r * sw, sw, sw, dx, dy, ds, ds);
+        if (dark && t > 0) {
+          const k = (state.solid && isFinder(r, col)) ? t : state.dark * t;
+          if (k > 0) { ctx.globalAlpha = k; ctx.fillStyle = INK_CSS; ctx.fillRect(dx, dy, ds, ds); }
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ---------- Canvas-Auflösung ----------
+  function resize() {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = SIZE * dpr; cv.height = SIZE * dpr;
+    screenCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  // ---------- Steuerung ----------
+  const prog = $('prog');
+  const phaseBtns = [...document.querySelectorAll('#phases button')];
+  function setP(v) {
+    state.p = clamp(v);
+    prog.value = Math.round(state.p * 1000);
+    const idx = state.p < .15 ? 0 : state.p < .45 ? 1 : state.p < .8 ? 2 : 3;
+    phaseBtns.forEach((b, i) => b.classList.toggle('on', i === idx));
+    draw();
+  }
+  prog.addEventListener('input', () => { stop(); setP(prog.value / 1000); });
+  phaseBtns.forEach(b => b.addEventListener('click', () => { stop(); setP(+b.dataset.p / 1000); }));
+
+  let anim = null;
+  const playBtn = $('play');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function stop() { if (anim) { cancelAnimationFrame(anim); anim = null; playBtn.textContent = 'Abspielen'; } }
+  playBtn.addEventListener('click', () => {
+    if (anim) { stop(); return; }
+    if (reduce) { setP(state.p >= 1 ? 0 : 1); return; }
+    const from = state.p >= .999 ? 0 : state.p;
+    const dur = 3600 * (1 - from), t0 = performance.now();
+    playBtn.textContent = 'Anhalten';
+    const step = now => {
+      const k = clamp((now - t0) / dur);
+      setP(lerp(from, 1, k));
+      if (k < 1) anim = requestAnimationFrame(step); else stop();
+    };
+    anim = requestAnimationFrame(step);
+  });
+
+  const bindRange = (id, key, scale, fmt) => {
+    const el = $(id), out = $(id + 'V');
+    const upd = (rebuild) => {
+      state[key] = el.value * scale; out.textContent = fmt(+el.value);
+      if (rebuild) buildSources(); else if (key === 'curv') buildUnwrap(); draw();
+    };
+    el.addEventListener('input', () => upd(key === 'zoom' || key === 'offY'));
+    upd(false);
+  };
+  bindRange('zoom', 'zoom', .01, v => (v / 100).toFixed(1).replace('.', ',') + '×');
+  bindRange('off', 'offY', .01, v => (v > 0 ? '+' : '') + v);
+
+  // Bild per Ziehen verschieben (Maus, Stift, Finger) und mit zwei Fingern zoomen
+  const pointers = new Map();
+  let drag = null, pinch = null, dragRaf = 0;
+  const zoomEl = $('zoom');
+  function rebuildSoon() { if (!dragRaf) dragRaf = requestAnimationFrame(() => { dragRaf = 0; buildSources(); draw(); }); }
+  function setZoom(z) {
+    z = clamp(z, zoomEl.min / 100, zoomEl.max / 100);
+    state.zoom = z; zoomEl.value = Math.round(z * 100);
+    $('zoomV').textContent = z.toFixed(1).replace('.', ',') + '×';
+  }
+  function startDrag(e) { drag = { x: e.clientX, y: e.clientY, ox: state.offX, oy: state.offY }; }
+  function startPinch() {
+    const [a, b] = [...pointers.values()];
+    pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, z: state.zoom };
+    drag = null;
+  }
+  cv.addEventListener('pointerdown', e => {
+    if (!src || e.button > 0) return;
+    stop();
+    cv.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    cv.classList.add('grabbing');
+    if (pointers.size === 1) startDrag(e); else if (pointers.size === 2) startPinch();
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && pointers.size >= 2) {
+      const [a, b] = [...pointers.values()];
+      setZoom(pinch.z * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d);
+      rebuildSoon(); return;
+    }
+    if (!drag) return;
+    const iw = src.naturalWidth || src.width, ih = src.naturalHeight || src.height;
+    const side = Math.min(iw, ih) / state.zoom;
+    const cell = SIZE / (N + 2 * QUIET);
+    const shownPx = cv.getBoundingClientRect().width * (N * cell * K0) / SIZE;
+    const k = side / shownPx; // Quellpixel pro Bildschirmpixel
+    state.offX = drag.ox - (e.clientX - drag.x) * k / iw;
+    state.offY = drag.oy - (e.clientY - drag.y) * k / ih;
+    rebuildSoon();
+  });
+  const endPointer = e => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.delete(e.pointerId);
+    try { cv.releasePointerCapture(e.pointerId); } catch (_) {}
+    if (pointers.size < 2) pinch = null;
+    if (pointers.size === 1) { const [id, pt] = [...pointers.entries()][0]; startDrag({ clientX: pt.x, clientY: pt.y }); }
+    if (pointers.size === 0) { drag = null; cv.classList.remove('grabbing'); }
+  };
+  cv.addEventListener('pointerup', endPointer);
+  cv.addEventListener('pointercancel', endPointer);
+  function resetCrop() { state.offX = 0; state.offY = 0; setZoom(1); buildSources(); draw(); }
+  cv.addEventListener('dblclick', resetCrop);
+  $('resetCrop').addEventListener('click', resetCrop);
+  bindRange('curv', 'curv', .01, v => v + ' %');
+  bindRange('dark', 'dark', .01, v => v + ' %');
+  bindRange('gap', 'gap', .01, v => v + ' %');
+  $('solid').addEventListener('change', e => { state.solid = e.target.checked; draw(); });
+  document.querySelectorAll('input[name=style]').forEach(r =>
+    r.addEventListener('change', () => { state.style = r.value; buildSources(); draw(); }));
+
+  let qrTimer;
+  $('txt').addEventListener('input', () => { clearTimeout(qrTimer); qrTimer = setTimeout(() => { buildQR(); draw(); }, 150); });
+
+  // ---------- Foto laden ----------
+  const upStatus = $('upStatus');
+  const say = (msg, err = false) => { upStatus.textContent = msg; upStatus.classList.toggle('err', err); };
+
+  function viaImg(blob) {
+    return new Promise((res, rej) => {
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => res(img);
+      img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('decode')); };
+      img.src = url;
+    });
+  }
+  async function decode(blob) {
+    if (window.createImageBitmap) {
+      try { return await createImageBitmap(blob, { imageOrientation: 'from-image' }); } catch (e) { /* Fallback */ }
+    }
+    return viaImg(blob);
+  }
+  let heicLib = null;
+  function loadHeicLib() {
+    if (window.heic2any) return Promise.resolve();
+    if (!heicLib) heicLib = new Promise((res, rej) => {
+      const sc = document.createElement('script');
+      sc.src = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+      sc.onload = res; sc.onerror = () => { heicLib = null; rej(new Error('lib')); };
+      document.head.appendChild(sc);
+    });
+    return heicLib;
+  }
+
+  let loading = false;
+  async function loadFile(file) {
+    if (!file) return;
+    if (loading) return;
+    const name = file.name || 'Foto';
+    const isHeic = /\.(heic|heif)$/i.test(name) || /hei[cf]/i.test(file.type);
+    if (file.type && !file.type.startsWith('image/') && !isHeic) {
+      say(`„${name}“ ist kein Bild. Wähle ein JPG, PNG, WebP oder HEIC-Foto.`, true);
+      return;
+    }
+    loading = true; stop();
+    say(`„${name}“ wird geladen …`);
+    try {
+      let bmp;
+      try {
+        bmp = await decode(file);
+      } catch (e) {
+        if (!isHeic) throw e;
+        say('HEIC-Foto wird umgewandelt …');
+        await loadHeicLib();
+        let out = await window.heic2any({ blob: file, toType: 'image/jpeg', quality: .92 });
+        if (Array.isArray(out)) out = out[0];
+        bmp = await decode(out);
+      }
+      if (!(bmp.width || bmp.naturalWidth)) throw new Error('leer');
+      setSource(bmp);
+      say(`„${name}“ geladen.`);
+    } catch (e) {
+      say(isHeic
+        ? 'Das HEIC-Foto ließ sich nicht umwandeln. Exportiere es als JPG und versuche es erneut.'
+        : `„${name}“ ließ sich nicht öffnen. Probiere ein JPG oder PNG.`, true);
+    } finally {
+      loading = false;
+      $('file').value = ''; // damit dasselbe Foto erneut gewählt werden kann
+    }
+  }
+
+  $('file').addEventListener('change', e => loadFile(e.target.files && e.target.files[0]));
+
+  // Ziehen und Ablegen: überall abfangen, damit der Browser das Bild nicht selbst öffnet
+  ['dragover', 'drop'].forEach(ev => window.addEventListener(ev, e => e.preventDefault()));
+  window.addEventListener('drop', e => {
+    stageEl.classList.remove('drag');
+    const f = e.dataTransfer && [...e.dataTransfer.files].find(x => !x.type || x.type.startsWith('image/') || /\.(heic|heif)$/i.test(x.name));
+    if (f) loadFile(f); else if (e.dataTransfer && e.dataTransfer.files.length) say('Die abgelegte Datei ist kein Bild.', true);
+  });
+  let dragDepth = 0;
+  window.addEventListener('dragenter', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { dragDepth++; stageEl.classList.add('drag'); } });
+  window.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) stageEl.classList.remove('drag'); });
+  window.addEventListener('drop', () => { dragDepth = 0; });
+
+  // ---------- Kamera ----------
+  const camView = $('camView'), video = $('camVideo');
+  let stream = null, facing = 'user';
+
+  async function openCam() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      $('camFile').click(); // Fallback: Kamera-App des Handys
+      return;
+    }
+    closeCam(false);
+    say('Kamera wird gestartet …');
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facing, width: { ideal: 1440 }, height: { ideal: 1440 } }, audio: false
+      });
+    } catch (e) {
+      stream = null;
+      if (e.name === 'NotAllowedError' || e.name === 'SecurityError') {
+        say('Der Kamerazugriff wurde nicht erlaubt. Gib ihn in den Browser-Einstellungen frei oder wähle ein Foto.', true);
+      } else if (e.name === 'NotFoundError' || e.name === 'OverconstrainedError') {
+        say('Es wurde keine Kamera gefunden. Wähle stattdessen ein Foto.', true);
+      } else if (e.name === 'NotReadableError') {
+        say('Die Kamera wird gerade von einer anderen App benutzt. Schließe sie und versuche es erneut.', true);
+      } else {
+        say('Die Kamera ließ sich nicht starten. Wähle stattdessen ein Foto.', true);
+      }
+      return;
+    }
+    stop();
+    video.srcObject = stream;
+    const s = stream.getVideoTracks()[0].getSettings ? stream.getVideoTracks()[0].getSettings() : {};
+    const isFront = s.facingMode ? s.facingMode === 'user' : facing === 'user';
+    video.classList.toggle('mirror', isFront);
+    camView.hidden = false;
+    try { await video.play(); } catch (e) { /* Autoplay wird durch muted erlaubt */ }
+    say('');
+    try {
+      const devs = await navigator.mediaDevices.enumerateDevices();
+      $('camSwitch').hidden = devs.filter(d => d.kind === 'videoinput').length < 2;
+    } catch (e) { /* egal */ }
+    $('camShoot').focus();
+  }
+
+  function closeCam(hide = true) {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    stream = null; video.srcObject = null;
+    if (hide) camView.hidden = true;
+  }
+
+  function shoot() {
+    const w = video.videoWidth, h = video.videoHeight;
+    if (!w || !h) return;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d');
+    if (video.classList.contains('mirror')) { g.translate(w, 0); g.scale(-1, 1); } // so wie in der Vorschau
+    g.drawImage(video, 0, 0, w, h);
+    closeCam();
+    const fl = $('flash'); fl.classList.remove('go'); void fl.offsetWidth; fl.classList.add('go');
+    setSource(c);
+    say('Foto aufgenommen.');
+    $('camBtn').focus();
+  }
+
+  $('camBtn').addEventListener('click', openCam);
+  $('camShoot').addEventListener('click', shoot);
+  $('camCancel').addEventListener('click', () => { closeCam(); say(''); $('camBtn').focus(); });
+  $('camSwitch').addEventListener('click', () => { facing = facing === 'user' ? 'environment' : 'user'; openCam(); });
+  $('camFile').addEventListener('change', e => { loadFile(e.target.files && e.target.files[0]); e.target.value = ''; });
+  document.addEventListener('keydown', e => {
+    if (camView.hidden) return;
+    if (e.key === 'Escape') { closeCam(); say(''); }
+    else if ((e.key === ' ' || e.key === 'Enter') && document.activeElement === $('camShoot')) { /* Button löst selbst aus */ }
+    else if (e.key === ' ') { e.preventDefault(); shoot(); }
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && stream) { closeCam(); } });
+
+  // Einfügen aus der Zwischenablage
+  window.addEventListener('paste', e => {
+    const item = e.clipboardData && [...e.clipboardData.items].find(i => i.type.startsWith('image/'));
+    if (item) { e.preventDefault(); loadFile(item.getAsFile()); }
+  });
+
+  // ---------- Export ----------
+  const dlStatus = $('dlStatus');
+  const sayDl = (m, err = false) => { dlStatus.textContent = m; dlStatus.classList.toggle('err', err); };
+
+  function renderTo(c2d, scale, p, hi) {
+    const prevCtx = ctx, prevP = state.p, prevFrame = frame;
+    ctx = c2d; ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    state.p = p;
+    if (hi) { if (!hiFrame) hiFrame = makeFrame(560); frame = hiFrame; }
+    draw();
+    ctx = prevCtx; state.p = prevP; frame = prevFrame;
+  }
+
+  function saveBlob(blob, name) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }
+
+  const baseName = () => 'qr-portrait-' + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+
+  $('dlPng').addEventListener('click', () => {
+    const W = 2048;
+    const c = document.createElement('canvas'); c.width = c.height = W;
+    renderTo(c.getContext('2d'), W / SIZE, 1, true);
+    c.toBlob(b => {
+      if (!b) { sayDl('Das Bild konnte nicht erzeugt werden.', true); return; }
+      saveBlob(b, baseName() + '.png'); sayDl('QR-Code als PNG gespeichert.');
+    }, 'image/png');
+  });
+
+  // Ablauf: kurz Foto zeigen, Verwandlung, fertigen Code stehen lassen
+  const HOLD_A = .7, RUN = 4.2, HOLD_B = 1.4, FPS = 30;
+  const pAt = t => t < HOLD_A ? 0 : clamp((t - HOLD_A) / RUN);
+
+  let muxLib = null;
+  function loadMuxer() {
+    if (window.Mp4Muxer) return Promise.resolve();
+    if (!muxLib) muxLib = new Promise((res, rej) => {
+      const sc = document.createElement('script');
+      sc.src = 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js';
+      sc.onload = res; sc.onerror = () => { muxLib = null; rej(new Error('lib')); };
+      document.head.appendChild(sc);
+    });
+    return muxLib;
+  }
+  const tick = () => new Promise(r => setTimeout(r, 0));
+
+  async function videoMp4(c, g, W, total) {
+    let codec = null;
+    for (const cd of ['avc1.640028', 'avc1.4d0028', 'avc1.42002a']) {
+      const cfg = { codec: cd, width: W, height: W, bitrate: 8e6, framerate: FPS };
+      try { if ((await VideoEncoder.isConfigSupported(cfg)).supported) { codec = cfg; break; } } catch (e) {}
+    }
+    if (!codec) throw new Error('nocodec');
+    await loadMuxer();
+    const muxer = new Mp4Muxer.Muxer({
+      target: new Mp4Muxer.ArrayBufferTarget(),
+      video: { codec: 'avc', width: W, height: W, frameRate: FPS },
+      fastStart: 'in-memory'
+    });
+    let encErr = null;
+    const enc = new VideoEncoder({ output: (ch, meta) => muxer.addVideoChunk(ch, meta), error: e => { encErr = e; } });
+    enc.configure(codec);
+    for (let i = 0; i < total; i++) {
+      if (encErr) throw encErr;
+      renderTo(g, W / SIZE, pAt(i / FPS), true);
+      const vf = new VideoFrame(c, { timestamp: Math.round(i * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
+      enc.encode(vf, { keyFrame: i % (FPS * 2) === 0 });
+      vf.close();
+      if (i % 3 === 0) { sayDl(`Video wird erstellt … ${Math.round(i / total * 100)} %`); await tick(); }
+      while (enc.encodeQueueSize > 8) await tick();
+    }
+    await enc.flush(); enc.close();
+    if (encErr) throw encErr;
+    muxer.finalize();
+    return { blob: new Blob([muxer.target.buffer], { type: 'video/mp4' }), ext: 'mp4' };
+  }
+
+  async function videoWebm(c, g, W, total) {
+    const type = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4']
+      .find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t));
+    if (!type || !c.captureStream) throw new Error('norecorder');
+    const stream = c.captureStream(0), track = stream.getVideoTracks()[0];
+    const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 8e6 });
+    const chunks = []; rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+    const done = new Promise(r => rec.onstop = r);
+    rec.start();
+    const t0 = performance.now();
+    for (let i = 0; i < total; i++) {
+      renderTo(g, W / SIZE, pAt(i / FPS), true);
+      track.requestFrame && track.requestFrame();
+      sayDl(`Video wird aufgezeichnet … ${Math.round(i / total * 100)} %`);
+      const wait = t0 + (i + 1) * 1000 / FPS - performance.now();
+      await new Promise(r => setTimeout(r, Math.max(0, wait)));
+    }
+    rec.stop(); await done;
+    const ext = type.includes('mp4') ? 'mp4' : 'webm';
+    return { blob: new Blob(chunks, { type: type.split(';')[0] }), ext };
+  }
+
+  let exporting = false;
+  $('dlVid').addEventListener('click', async () => {
+    if (exporting) return;
+    exporting = true; stop();
+    const btn = $('dlVid'); btn.disabled = true;
+    const W = 1080, total = Math.round((HOLD_A + RUN + HOLD_B) * FPS);
+    const c = document.createElement('canvas'); c.width = c.height = W;
+    const g = c.getContext('2d');
+    sayDl('Video wird vorbereitet …');
+    try {
+      let out = null;
+      if (window.VideoEncoder && window.VideoFrame) {
+        try { out = await videoMp4(c, g, W, total); } catch (e) { out = null; }
+      }
+      if (!out) out = await videoWebm(c, g, W, total);
+      saveBlob(out.blob, baseName() + '.' + out.ext);
+      sayDl(out.ext === 'mp4' ? 'Animation als MP4 gespeichert.' : 'Animation als WebM gespeichert. Dein Browser kann kein MP4 erzeugen, in Chrome oder Safari klappt das.');
+    } catch (e) {
+      sayDl('Dein Browser kann keine Videos erzeugen. Probiere es in einer aktuellen Version von Chrome, Edge oder Safari.', true);
+    } finally {
+      exporting = false; btn.disabled = false; draw();
+    }
+  });
+
+  // ---------- Start ----------
+  src = placeholder();
+  buildQR(); buildSources();
+  window.addEventListener('resize', resize);
+  resize(); setP(0);
+})();
+</script>
+</body>
+</html>
